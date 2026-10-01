@@ -1,0 +1,23 @@
+/* THIS FILE WILL BE OVERWRITTEN BY DEV-C++ */
+/* DO NOT EDIT ! */
+
+#ifndef FLORAM_PRIVATE_H
+#define FLORAM_PRIVATE_H
+
+/* VERSION DEFINITIONS */
+#define VER_STRING	"1.4.2.0"
+#define VER_MAJOR	1
+#define VER_MINOR	4
+#define VER_RELEASE	2
+#define VER_BUILD	0
+#define COMPANY_NAME	"TWXH"
+#define FILE_VERSION	"1.4.2.0"
+#define FILE_DESCRIPTION	"Floram"
+#define INTERNAL_NAME	""
+#define LEGAL_COPYRIGHT	"TWXH 2026"
+#define LEGAL_TRADEMARKS	""
+#define ORIGINAL_FILENAME	"floram.exe"
+#define PRODUCT_NAME	"Floram"
+#define PRODUCT_VERSION	"1.4.2.0"
+
+#endif /*FLORAM_PRIVATE_H*/

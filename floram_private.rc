@@ -1,0 +1,35 @@
+/* THIS FILE WILL BE OVERWRITTEN BY DEV-C++ */
+/* DO NOT EDIT! */
+
+#include <windows.h> // include for version info constants
+
+#include "resources.rc"
+
+//
+// TO CHANGE VERSION INFORMATION, EDIT PROJECT OPTIONS...
+//
+1 VERSIONINFO
+FILEVERSION 1,4,2,0
+PRODUCTVERSION 1,4,2,0
+FILETYPE VFT_APP
+{
+  BLOCK "StringFileInfo"
+  {
+    BLOCK "040904E4"
+    {
+      VALUE "CompanyName", "TWXH"
+      VALUE "FileVersion", "1.4.2.0"
+      VALUE "FileDescription", "Floram"
+      VALUE "InternalName", ""
+      VALUE "LegalCopyright", "TWXH 2026"
+      VALUE "LegalTrademarks", ""
+      VALUE "OriginalFilename", "floram.exe"
+      VALUE "ProductName", "Floram"
+      VALUE "ProductVersion", "1.4.2.0"
+    }
+  }
+  BLOCK "VarFileInfo"
+  {
+    VALUE "Translation", 0x0409, 1252
+  }
+}
