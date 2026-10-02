@@ -371,6 +371,14 @@ static void Player_respawn(Player* self) {
 }
 
 Player player;
+
+/* Edge triggered key input.
+ * The original did while(GetAsyncKeyState(k)); after each toggle, which
+ * froze the whole frame - no drawing, no logic - until the key came
+ * back up.  A held R (reload the world) locked it for as long as the
+ * user felt like holding. */
+#define KDOWN(k) ((GetAsyncKeyState(k) & 0x8000) != 0)
+static int s_prevKey[256];
 typedef struct Mob {
     int id;
     MobType type;
@@ -1356,7 +1364,7 @@ void moveMobsInView(int startChunkX, int endChunkX, int startChunkY, int endChun
         // Skip stationary mobs
         if (IsObstacle(mob->type)) {
         	if(mob->type==PEARL){
-        		mob->shellTimer +=rand()%3;
+        		mob->shellTimer ++;
         		if(mob->shellTimer>300){
         			mob->shellTimer=0;
 				}else if(mob->shellTimer>240&&mob->shellTimer<=300){
@@ -1795,6 +1803,23 @@ void drawMob(Mob* mob, int centerX, int centerY, int renderSize, bool showMode) 
     double screenY = centerY + (mob->y - player.y) * renderSizez;
     
     int size = mobDrawSize(mob, renderSize, showMode);
+
+    /* Zoomed out, a mob is 2-4 px across.  Everything below draws ten
+     * or more primitives plus two labelled strings, none of which is
+     * readable at that size - and with a thousand mobs on screen it was
+     * the single most expensive thing in the frame.  One blob in the
+     * mob's own colour carries the same information at that zoom. */
+    if (!showMode && size < 5) {
+        /* solidcircle(), not fillcircle(): in easygl fillcircle() is
+         * solidcircle() PLUS circle(), so it strokes an outline with
+         * whatever line style the previous mob left behind - a
+         * ladybug's thick red border around a 2 px pebble.  The blob
+         * only wants the fill, and skipping the outline is one less
+         * ring of vertices per mob. */
+        setfillcolor(mobColors[mob->type]);
+        solidcircle(screenX, screenY, max(1.0, (double)size));
+        return;
+    }
     
     int AntborderWidth = size;
     int BushRockborderWidth = size * 3 / 5;
@@ -1806,11 +1831,18 @@ void drawMob(Mob* mob, int centerX, int centerY, int renderSize, bool showMode) 
 		vec_clear(mob->bodySegments);
 	}
     
+    /* Two labels, each with a 1px drop shadow: four outtextxy() per
+     * mob, and every outtextxy() formats a 352 byte key string and
+     * hashes it twice.  Below renderSize 32 the mob is a few pixels
+     * across and the text is an unreadable smear, so drop the lot -
+     * labels, health bar and all. */
+    bool showLabel = showMode || renderSize >= 32;
     LOGFONT oldFont;
     getfont(&oldFont);
     
     COLORREF antColor = (mob->rarity >= 1 && mob->rarity <= 10) ? rarityColors[mob->rarity] : YELLOW;
     
+    if (showLabel) {
     LOGFONT levelFont = oldFont;
     levelFont.lfHeight = getMobLevelFontSize(renderSize);
     levelFont.lfWidth = 0;
@@ -1880,6 +1912,7 @@ void drawMob(Mob* mob, int centerX, int centerY, int renderSize, bool showMode) 
      * skipped for it. */
     
     setfont(&oldFont);
+    }
     
     setlinestyle(PS_SOLID, 1);
      
@@ -2400,6 +2433,14 @@ void drawChunk(double screenX, double screenY, int chunkX, int chunkY, int rende
     if (type != SOIL && type != GRASS && type != SAND && type != ICE)
         return;
 
+    /* Sub-cell detail is dropped once a cell is only a few pixels wide.
+     * At renderSize 12 a cell is 3 px across, so the 4x4 masks come out
+     * as 3x3 px squares: invisible, and roughly 30000 rects a frame for
+     * the ~3300 chunks on screen.  The base rect alone is both far
+     * cheaper and cleaner looking at that zoom. */
+    if (cell < 8)
+        return;
+
     unsigned char (*pattern)[4] = NULL;
 
     if (type == SOIL)
@@ -2816,7 +2857,7 @@ int main() {
     SetWindowText(hwnd,"Floram");
     initColors(); 
     setvsync(true);
-    setaasamples(4);
+    setaasamples(2);
     setfontmode(GLF_INT);
     setfiltermode(GL_LINEAR);
      
@@ -3008,20 +3049,20 @@ int main() {
             else if (GetAsyncKeyState('D')) player.vx = player.baseSpeed;
             else player.vx /=1.5;
             
-            if (GetAsyncKeyState('T')) {
-                while(GetAsyncKeyState('T'));
+            if (KDOWN('T') && !s_prevKey['T']) {
+                s_prevKey['T'] = 1;
                 renderSize = (renderSize == 72) ? 12 : 72;
             }
-            if (GetAsyncKeyState('R')) {
-                while(GetAsyncKeyState('R'));
+            if (KDOWN('R') && !s_prevKey['R']) {
+                s_prevKey['R'] = 1;
                 if (Player_isDead(&player)) {
                     Player_respawn(&player);
                 }
             }
-            if (GetAsyncKeyState('C')) {
+            if (KDOWN('C') && !s_prevKey['C']) {
                 int ax;
                 int ay;
-                while(GetAsyncKeyState('C'));
+                s_prevKey['C'] = 1;
                 srand(time(0));
                 mobs_clear();
                 nextMobId=0;
@@ -3031,11 +3072,11 @@ int main() {
                 player.activeSandstorms=0;
                 generateMobs();
             }
-            if (GetAsyncKeyState('B')) {
+            if (KDOWN('B') && !s_prevKey['B']) {
                 int ax;
                 int ay;
                 int i;
-                while(GetAsyncKeyState('B'));
+                s_prevKey['B'] = 1;
                 srand(time(0));
                 mobs_clear();
                 nextMobId=0;
@@ -3045,10 +3086,10 @@ int main() {
                 player.activeSandstorms=0;
                 for(i =1;i<=10;i++)generateMobs();
             }
-            if (GetAsyncKeyState('V')) {
+            if (KDOWN('V') && !s_prevKey['V']) {
                 int ax;
                 int ay;
-                while(GetAsyncKeyState('V'));
+                s_prevKey['V'] = 1;
                 mobs_clear();
                 nextMobId=0;
                 for(ax = 0; ax < MAP_SIZE; ax++)
@@ -3056,8 +3097,8 @@ int main() {
 			            vec_clear(worldMap[ax][ay].mobIds);
                 player.activeSandstorms=0;
             }
-            if (GetAsyncKeyState('K')) {
-                while(GetAsyncKeyState('K'));
+            if (KDOWN('K') && !s_prevKey['K']) {
+                s_prevKey['K'] = 1;
                 Player_respawn(&player);
             }
             if (GetAsyncKeyState('L')) {
@@ -3079,19 +3120,30 @@ int main() {
                 hwnd=initgraph(SCREEN_WIDTH, SCREEN_HEIGHT);
 			    BeginBatchDraw();
             }
-            if (GetAsyncKeyState('G')) {
-                while(GetAsyncKeyState('G'));
+            if (KDOWN('G') && !s_prevKey['G']) {
+                s_prevKey['G'] = 1;
                 player.canSummonSandstorm=!player.canSummonSandstorm;
             }
+            {
+                int i;
+                static const int watched[] = { 'T','R','C','B','V','K','G' };
+                for (i = 0; i < 7; i++)
+                    s_prevKey[watched[i]] = KDOWN(watched[i]) ? 1 : 0;
+            }
+        }
+        /* Clamp the catch-up.  Without it a slow frame - a save, a
+         * resize, a thousand mobs on screen - leaves tit large, so the
+         * next frame runs several ticks, gets slower still, and the loop
+         * feeds itself until the program stops responding.  Three ticks
+         * is the most a frame will ever try to make up. */
+        if (tit > 50.0) tit = 50.0;
+        if (Player_isDead(&player)) {
+            Sleep(500);
+            Player_respawn(&player);
         }
         while(tit>=16.7){
 			movePlayer();
 	        moveMobs(renderSize);
-	            
-	        if (Player_isDead(&player)) {
-	            Sleep(500);
-	            Player_respawn(&player);
-	        }
 	        Player_heal(&player);
 	        tit-=16.7;
     	}
@@ -3134,12 +3186,31 @@ int main() {
                     player.summonSandstormDamage, (int)player.canSummonSandstorm);
             
             // Save world map
-            for (x = 0; x < MAP_SIZE; x++) {
-                int y;
-                for (y = 0; y < MAP_SIZE; y++) {
-                    fprintf(fout, "%d ", (int)worldMap[x][y].type);
+            /* 16384 fprintf() calls stalled the frame for tens of
+             * milliseconds.  One pass into a buffer, one fwrite().
+             * Same text, so loadGame() still reads it. */
+            {
+                size_t need = (size_t)MAP_SIZE * ((size_t)MAP_SIZE * 2 + 2) + 64;
+                char* wb = (char*)malloc(need);
+                if (wb) {
+                    size_t p = 0;
+                    for (x = 0; x < MAP_SIZE; x++) {
+                        int y;
+                        for (y = 0; y < MAP_SIZE; y++) {
+                            wb[p++] = (char)('0' + (int)worldMap[x][y].type);
+                            wb[p++] = (y == MAP_SIZE - 1) ? '\n' : ' ';
+                        }
+                    }
+                    fwrite(wb, 1, p, fout);
+                    free(wb);
+                } else {
+                    for (x = 0; x < MAP_SIZE; x++) {
+                        int y;
+                        for (y = 0; y < MAP_SIZE; y++)
+                            fprintf(fout, "%d ", (int)worldMap[x][y].type);
+                        fprintf(fout, "\n");
+                    }
                 }
-                fprintf(fout, "\n");
             }
             
             // Save mob data
@@ -3169,6 +3240,7 @@ int main() {
     closegraph();
     return 0;
 }
+
 
 
 
